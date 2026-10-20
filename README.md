@@ -1,107 +1,43 @@
-# FinTrack — Expense Tracker with Anomaly Detection
+# FinTrack
 
-**Live Demo → [fintrack.onrender.com](https://fintrack.onrender.com)**
+An expense-tracking prototype with a React client, Express API and MongoDB storage. Users can record transactions, view category totals and inspect rule-based spending flags.
 
-A full-stack personal finance web app with JWT authentication, categorized transaction logging, and a multi-rule anomaly detection engine that flags unusual spending patterns — simulating fraud detection logic used in real fintech systems.
+## What a flag means
 
----
+`server/anomaly.js` checks category amount outliers, a fixed large-expense threshold, possible duplicates, unusual hours and daily spending spikes. These are hand-written heuristics. The score is a rule severity value, not the probability of fraud. There is no labelled fraud dataset or measured fraud-detection accuracy.
 
-## Features
+The code uses server-local time and current-time history windows. Backdated transactions and sparse histories can produce surprising flags. The amount-outlier message also assumes an upward outlier even though its calculation uses an absolute z-score. These are limitations to address before treating the flags as reliable advice.
 
-- **Secure auth** — JWT-based login/register with bcrypt password hashing
-- **Transaction management** — add, view, and filter income/expense transactions by category
-- **5-rule anomaly detection engine** — every transaction is analysed on save:
-  - Statistical outlier within category (z-score > 2.5σ)
-  - Large single transaction threshold
-  - Duplicate detection (same amount + category within 24h)
-  - Unusual transaction hour (2am–5am)
-  - Daily spending spike (3× rolling daily average)
-- **Anomaly score** — 0–100% severity score per flagged transaction
-- **Dashboard** — KPI cards, income vs expense bar chart, category pie chart, net balance trend
-- **Anomaly log** — dedicated view of all flagged transactions with reasons
+## Run locally
 
----
+Requires Node.js and MongoDB. Use sample transactions only.
 
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Frontend | React 18, Recharts, Axios, React Hot Toast |
-| Backend | Node.js, Express |
-| Database | MongoDB + Mongoose |
-| Auth | JWT + bcryptjs |
-| Security | Helmet, CORS, express-rate-limit |
-| Deployment | Render (backend) + Vercel (frontend) |
-
----
-
-## Architecture
-
-```
-React Client (Vercel)
-      │  JWT in Authorization header
-      ▼
-Express API (Render)
-      ├── /api/auth          ← register, login, me
-      ├── /api/transactions  ← CRUD + anomaly analysis on POST
-      └── /api/analytics     ← monthly summary, 6-month trends
-              │
-              ▼
-      AnomalyEngine          ← 5 rules, returns isAnomaly + reason + score
-              │
-              ▼
-      MongoDB (Atlas)        ← Users, Transactions
-```
-
----
-
-## Running Locally
-
-**Prerequisites:** Node.js 18+, MongoDB running locally (or a free MongoDB Atlas URI)
-
-```bash
-git clone https://github.com/harshituppala/fintrack
-cd fintrack
-
-# Install all dependencies
-npm run install:all
-
-# Set up environment variables
+```sh
+npm ci
+npm --prefix server ci
+npm --prefix client ci
 cp server/.env.example server/.env
-# Edit server/.env with your MONGO_URI and JWT_SECRET
-
-# Run both server and client concurrently
-npm run dev
-# Server → http://localhost:5000
-# Client → http://localhost:3000
 ```
 
----
+Set a local MongoDB URI, an independently generated JWT secret and the client origin in `server/.env`. Then run:
 
-## Deployment
+```sh
+PORT=5001 npm run dev
+```
 
-**Backend → Render:**
-1. Create new Web Service on [render.com](https://render.com)
-2. Root directory: `server`
-3. Build command: `npm install`
-4. Start command: `npm start`
-5. Add env vars: `MONGO_URI`, `JWT_SECRET`, `CLIENT_URL`
+The client opens at http://localhost:3000 and its configured development proxy targets http://127.0.0.1:5001. The API listens only after MongoDB connects. To build the client, run `npm run build`.
 
-**Frontend → Vercel:**
-1. Import repo on [vercel.com](https://vercel.com)
-2. Root directory: `client`
-3. Add env var: `REACT_APP_API_URL=https://your-backend.onrender.com`
+## Boundaries
 
----
+The API has account and transaction routes scoped to a user. Password hashing, JWTs and Helmet are present, but their presence is not a security assessment. The current code falls back to a development signing secret if configuration is missing; do not expose it publicly or use real financial records without fixing that behavior and reviewing authentication, validation, error responses and rate limiting. A rate-limit package is listed but not applied in the server entry point.
 
-## Project Context
+No automated test suite or deployment acceptance report is recorded here. Previous demo links have been removed from the introduction until the running service and its configuration are checked.
 
-Built as part of my CICS internship application portfolio. The anomaly detection engine directly mirrors logic used in real fintech fraud detection systems — statistical z-score analysis, duplicate flagging, and behavioural baselines. This project demonstrates full-stack architecture, security fundamentals (JWT, bcrypt, rate limiting, helmet), and applied data analysis.
+## Source map
 
----
+- `client/src/App.js`: client views and authentication state.
+- `server/routes/`: account, transaction and analytics endpoints.
+- `server/anomaly.js`: flag calculations and their history queries.
+- `server/models/`: stored user and transaction records.
 
-## Author
-
-**Harshit Kumar Uppala**  
-B.Sc. Computer Science, Memorial University of Newfoundland  
-[github.com/harshituppala](https://github.com/harshituppala) · hkuppala@mun.ca
+This is a small full-stack exercise. It does not establish banking integration, production security or validated fraud detection.
